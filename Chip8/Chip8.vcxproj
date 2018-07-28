@@ -19,12 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ArgumentHandler.cpp" />
     <ClCompile Include="Chip8.cpp" />
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Opcodes.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ArgumentHandler.hpp" />
     <ClInclude Include="Chip8.hpp" />
     <ClInclude Include="Compiler.hpp" />
     <ClInclude Include="Opcodes.hpp" />

@@ -23,12 +23,20 @@ private:
 	std::array<uint16_t, 16> stack =		{ 0 };
 	std::array<int8_t, 0xF> registers = { 0 };
 	std::vector<char> ROM;
-	uint16_t pc = 0x200;
+	uint16_t pc = 0x00;//0x200;
+	uint16_t memory_pointer = 0x200;
 	uint8_t stack_pointer = std::numeric_limits<uint8_t>::max();
 	//std::array<opcode_t, 35> opcodes;
 	uint16_t instruction = 0;
 	sf::Text debugtext;
 	sf::Font debugfont;
+	void init()
+	{
+		debugfont.loadFromFile("../resources/fonts/consola.ttf");
+		debugtext.setFont(debugfont);
+		debugtext.setString("");
+		srand((unsigned)time(0));
+	}
 public:
 	Chip8(const std::string title, unsigned width, unsigned height);
 	Chip8();

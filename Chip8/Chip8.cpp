@@ -34,9 +34,7 @@ Chip8::Chip8(const std::string title, unsigned width, unsigned height)
 	window(sf::VideoMode(pixel_size * width, pixel_size * height), title)
 {
 	print_func_call(__FUNCTION__);
-	debugfont.loadFromFile("../resources/fonts/consola.ttf");
-	debugtext.setFont(debugfont);
-	debugtext.setString("");
+	init();
 }
 
 Chip8::Chip8()
@@ -44,9 +42,7 @@ Chip8::Chip8()
 	window(sf::VideoMode(pixel_size * 64, pixel_size * 32), "Chip8 Emulator(Alpha)")
 {
 	print_func_call(__FUNCTION__);
-	debugfont.loadFromFile("../resources/fonts/consola.ttf");
-	debugtext.setFont(debugfont);
-	debugtext.setString("");
+	init();
 }
 
 
@@ -144,77 +140,229 @@ void Chip8::execute()
 	//printf("Instruction: %.4X [Sig: %.4X] \n", instruction, (instruction & 0xF000));
 	switch (instruction & 0xF000)
 	{
-	case 0x0000:
-	{
-		//printf("Branch [%.2X]\n", instruction & 0xFF00 >> 16);
-		switch (instruction & 0x00FF)
+		case 0x0000:
 		{
-			// CLS - 00E0
-		case 0xE0:
-			for (auto& it : graphics)
+			//printf("Branch [%.2X]\n", instruction & 0xFF00 >> 16);
+			switch (instruction & 0x00FF)
 			{
-				it = false;
-			}
-			break;
-			// RET - 00EE
-		case 0xEE:
-			if (stack_pointer == 0)
-			{
-				std::cerr << "[Runtime Error]: Attempting to return from subroutine with empty stack.\n";
-				std::exit(1);
-			}
-			else
-			{
-				pc = stack[stack_pointer--];
-			}
+				// CLS - 00E0
+			case 0xE0:
+				for (auto& it : graphics)
+				{
+					it = false;
+				}
 				break;
+				// RET - 00EE
+			case 0xEE:
+				if (stack_pointer == 0)
+				{
+					std::cerr << "[Runtime Error]: Attempting to return from subroutine with empty stack.\n";
+					std::exit(1);
+				}
+				else
+				{
+					pc = stack[stack_pointer--];
+				}
+					break;
+			}
 		}
-	}
-		break;
-	case 0x1000:
-		pc = (instruction & 0x0FFF);
-		break;
-	case 0x2000:
-		stack[++stack_pointer] = pc;
-		pc = instruction & 0x0FFF;
-		break;
-	case 0x3000:
-	{
-		int8_t byte = instruction & 0x00FF;
-		int8_t x = (instruction >> 8) & 0x000F;
-		if (x == byte)
+			break;
+		case 0x1000:
+		{
+			pc = (instruction & 0x0FFF);
+			break; 
+		}
+		case 0x2000:
+		{
+			stack[++stack_pointer] = pc;
+			pc = instruction & 0x0FFF;
+			break; 
+		}
+		case 0x3000:
+		{
+			int8_t byte = instruction & 0x00FF;
+			int8_t x = (instruction >> 8) & 0x000F;
+			if (x == byte)
+				pc += 2;
 			pc += 2;
-		pc += 2;
-		break;
-	}
-	case 0x4000:
-	{
-		int8_t byte = instruction & 0x00FF;
-		int8_t x = (instruction >> 8) & 0x000F;
-		if (x != byte)
-			pc += 2;
-		pc += 2;
-		break;
-	}
-	case 0x5000:
-	{
-		if ((instruction & 0x000F) == 0)
+			break;
+		}
+		case 0x4000:
 		{
 			int8_t byte = instruction & 0x00FF;
 			int8_t x = (instruction >> 8) & 0x000F;
 			if (x != byte)
 				pc += 2;
 			pc += 2;
+			break;
 		}
-		else
+		case 0x5000:
 		{
-			printf("Opcode 0x%.4X is not supported!\n", instruction);
+			if ((instruction & 0x000F) == 0)
+			{
+				int8_t byte = instruction & 0x00FF;
+				int8_t x = (instruction >> 8) & 0x000F;
+				if (x != byte)
+					pc += 2;
+				pc += 2;
+			}
+			else
+			{
+				printf("Opcode 0x%.4X is not supported!\n", instruction);
+			}
+			break;
 		}
-		break;
-	}
-	default:
-		printf("\tIgnoring instruction 0x%.4X - Not implemented.\n", instruction);
-		break;
+		case 0x6000:
+		{
+			uint8_t x = (instruction & 0x0F00) >> 8;
+			uint8_t byte = (instruction & 0x00FF);
+			registers[x] = byte;
+			break;
+		}
+		case 0x7000:
+		{
+			uint8_t x = (instruction & 0x0F00) >> 8;
+			uint8_t byte = (instruction & 0x00FF);
+			registers[x] += byte;
+			break;
+		}
+		case 0x8000:
+		{
+			switch (instruction & 0x000F)
+			{
+				case 0x0:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[x] = registers[y];
+					break;
+				}
+				case 0x1:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[x] |= registers[y];
+					break;
+				}
+				case 0x2:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[x] &= registers[y];
+					break;
+				}
+				case 0x3:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[x] ^= registers[y];
+					break;
+				}
+				case 0x4:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[0xF] = ((registers[x] + registers[y]) > 0xFF);
+					registers[x] = registers[x] + registers[y];
+					break;
+				}
+				case 0x5:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[0xF] = (registers[x] > registers[y]);
+					registers[x] = registers[x] - registers[y];
+					break;
+				}
+				case 0x6:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[0xF] = (registers[x] & 0x1);
+					registers[x] >>= 1;
+					break;
+				}
+				case 0x7:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[0xF] = (registers[y] > registers[x]);
+					registers[x] = registers[y] - registers[x];
+					break;
+				}
+				case 0xE:
+				{
+					uint8_t x = (instruction & 0x0F00) >> 8;
+					uint8_t y = (instruction & 0x00F0) >> 4;
+					registers[0xF] = (registers[x] & 0x8);
+					registers[x] <<= 1;
+					break;
+				}
+				default:
+					printf("Opcode 0x%.4X is not supported!\n", instruction);
+					break;
+			}
+			break;
+		}
+		case 0x9000:
+		{
+			if ((instruction & 0x000F) == 0)
+			{
+				uint8_t x = (instruction & 0x0F00) >> 8;
+				uint8_t y = (instruction & 0x00F0) >> 4;
+				if (registers[x] != registers[y])
+					pc += 2;
+				pc += 2;
+			}
+			else
+				printf("Opcode 0x%.4X is not supported!\n", instruction);
+			break;
+		}
+		case 0xA000:
+		{
+			memory_pointer = instruction & 0xFFF;
+			break;
+		}
+		case 0xB000:
+		{
+			pc = registers[0] + (instruction & 0x0FFF);
+			break;
+		}
+		case 0xC000:
+		{
+			uint8_t x = (instruction & 0x0F00) >> 8;
+			uint8_t byte = (instruction & 0x00FF);
+			registers[x] = (rand() & byte);
+			break;
+		}
+		case 0xD000:
+		{
+			uint8_t x = (instruction & 0x0F00) >> 8;
+			uint8_t y = (instruction & 0x00F0) >> 4;
+			uint8_t n = (instruction & 0x000F);
+			uint16_t& I = memory_pointer;
+
+			printf("Draw not implemented\n");
+
+			break;
+		}
+		case 0xE000:
+		{
+			if ((instruction & 0xFF) == 0x9E)
+			{
+				uint8_t x = (instruction & 0x0F00) >> 8;
+			}
+			else if ((instruction & 0xFF) == 0xA1)
+			{
+
+			}
+			else
+				printf("Opcode 0x%.4X is not supported!\n", instruction);
+			break;
+		}
+		default:
+			printf("\tIgnoring instruction 0x%.4X - Not implemented.\n", instruction);
+			break;
 	}
 }
 
