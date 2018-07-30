@@ -1,42 +1,59 @@
 #pragma once
 
+#include "Definitions.hpp"
+
 #include <SFML/Graphics.hpp>
 
 #include <map>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <functional>
-
+#include <sstream>
+#include <string>
 #include "Opcodes.hpp"
 
-//typedef std::function<void(Chip8*)> opcode_t;
+#ifdef DEBUG
+#define print_func_call(x) //printf("Function %s\n", x)
+#define OP(opstr, addr) printf("[%s]\t%.4X\n", opstr, addr);
+#define NoSupp(x) //printf("Opcode 0x%.4X is not supported!\n", x);
+#else
+#define print_func_call(x)
+#define OP(x, a)
+#define NoSupp(x)
+#endif
 
 class Chip8
 {
 private:
+	const std::string base_title;
 	const size_t pixel_size = 16u;
 	sf::RenderWindow window;
 	std::array<bool, 64 * 32> graphics =	{ 0 };
 	std::array<uint8_t, 0x1000> memory =	{ 0 };
 	std::array<uint16_t, 16> stack =		{ 0 };
-	std::array<int8_t, 0xF> registers = { 0 };
+	std::array<int8_t, 0x10> registers = { 0 };
 	std::vector<char> ROM;
-	uint16_t pc = 0x00;//0x200;
+	uint16_t pc = 0x0000;
 	uint16_t memory_pointer = 0x200;
-	uint8_t stack_pointer = std::numeric_limits<uint8_t>::max();
-	//std::array<opcode_t, 35> opcodes;
+	uint8_t stack_pointer = 0;
 	uint16_t instruction = 0;
-	sf::Text debugtext;
+	sf::Text fpstext, opcodetext;
 	sf::Font debugfont;
+	sf::Event e;
 	void init()
 	{
+		print_func_call(__FUNCTION__);
 		debugfont.loadFromFile("../resources/fonts/consola.ttf");
-		debugtext.setFont(debugfont);
-		debugtext.setString("");
+		fpstext.setFont(debugfont);
+		fpstext.setString("");
+		opcodetext = fpstext;
+		opcodetext.setPosition(window.getSize().x - opcodetext.getGlobalBounds().width * 2, 0);
 		srand((unsigned)time(0));
 	}
+	bool update_draw = true;
 public:
 	Chip8(const std::string title, unsigned width, unsigned height);
 	Chip8();
@@ -49,13 +66,4 @@ public:
 	void fetch();
 	void execute();
 	void render();
-	/*std::array<bool, 64 * 32>& get_graphics() { return graphics; }
-	std::array<uint8_t, 0x1000>& get_memory() { return memory; }
-	std::array<uint16_t, 16>& get_stack() { return stack; }
-	sf::RenderWindow& get_window() { return window; }
-	uint16_t& get_instruction() { return instruction; }
-	uint16_t& get_pc() { return pc; }
-	uint8_t& get_sp() { return stack_pointer; }
-	std::array<int8_t, 0xF>& get_registers() { return registers; }
-	int8_t& get_register(size_t i) { return registers[i % registers.size()]; }*/
 };

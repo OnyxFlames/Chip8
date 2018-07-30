@@ -24,12 +24,15 @@
     <ClCompile Include="Compiler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Opcodes.cpp" />
+    <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArgumentHandler.hpp" />
     <ClInclude Include="Chip8.hpp" />
     <ClInclude Include="Compiler.hpp" />
+    <ClInclude Include="Definitions.hpp" />
     <ClInclude Include="Opcodes.hpp" />
+    <ClInclude Include="Utils.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

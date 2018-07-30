@@ -2,8 +2,10 @@
 
 #include <filesystem>
 
-//#define print_func_call(x) printf("Function %s\n", x)/#define print_func_call(x)
-#define print_func_call(x)
+
+
+
+
 
 long handle_fps(sf::Time dt);
 
@@ -29,9 +31,41 @@ static std::array<uint8_t, 80> default_char =
 	0xF0, 0x80, 0xF0, 0x80, 0x80  //F
 };
 
+uint8_t sfmltochip(sf::Keyboard::Key key)
+{
+
+	return 0;
+}
+
+
+sf::Keyboard::Key chiptosfml(uint8_t key)
+{
+	switch (key)
+	{
+	case 0x1: return sf::Keyboard::Num1;
+	case 0x2: return sf::Keyboard::Num2;
+	case 0x3: return sf::Keyboard::Num3;
+	case 0xc: return sf::Keyboard::Num4;
+	case 0x4: return sf::Keyboard::Q;
+	case 0x5: return sf::Keyboard::W;
+	case 0x6: return sf::Keyboard::E;
+	case 0xD: return sf::Keyboard::R;
+	case 0x7: return sf::Keyboard::A;
+	case 0x8: return sf::Keyboard::S;
+	case 0x9: return sf::Keyboard::D;
+	case 0xE: return sf::Keyboard::F;
+	case 0xA: return sf::Keyboard::Z;
+	case 0x0: return sf::Keyboard::X;
+	case 0xB: return sf::Keyboard::C;
+	case 0xF: return sf::Keyboard::V;
+	}
+	return sf::Keyboard::Escape;
+}
+
 Chip8::Chip8(const std::string title, unsigned width, unsigned height)
 	:	
-	window(sf::VideoMode(pixel_size * width, pixel_size * height), title)
+	window(sf::VideoMode(pixel_size * width, pixel_size * height), title),
+	base_title(title.c_str())
 {
 	print_func_call(__FUNCTION__);
 	init();
@@ -39,7 +73,8 @@ Chip8::Chip8(const std::string title, unsigned width, unsigned height)
 
 Chip8::Chip8()
 	: 
-	window(sf::VideoMode(pixel_size * 64, pixel_size * 32), "Chip8 Emulator(Alpha)")
+	window(sf::VideoMode(pixel_size * 64, pixel_size * 32), "Chip8 Emulator (Alpha)"),
+	base_title("Chip8 Emulator (Alpha)")
 {
 	print_func_call(__FUNCTION__);
 	init();
@@ -63,17 +98,19 @@ bool Chip8::load_rom(const std::string romfile)
 		return false;
 	}
 	std::cout << "Loading \"" << fs::canonical(fs::path(romfile)) << "\"\n";
-	std::ifstream::pos_type pos = input.tellg();// +(std::streampos)0x200;
+	std::ifstream::pos_type pos = input.tellg();
 	std::vector<char> buffer((unsigned)pos);
 	input.seekg(0, std::ios::beg);
 	input.read(&buffer[0], (unsigned)pos);
 	ROM = buffer;
 	std::cout << "Loaded " << ROM.size() << " bytes.\n";
+	window.setTitle(base_title + " - " + fs::path(romfile).filename().string());
 	return true;
 }
 
 bool Chip8::load_font()
 {
+	print_func_call(__FUNCTION__);
 	for (size_t i = 0; i < default_char.size(); i++)
 		memory[i] = default_char[i];
 	//printf("Loaded Chip8 font (%u bytes)\n", default_char.size());
@@ -95,7 +132,6 @@ void Chip8::run()
 void Chip8::dispatch()
 {
 	print_func_call(__FUNCTION__);
-	sf::Event e;
 	while (window.pollEvent(e))
 	{
 		switch (e.type)
@@ -117,9 +153,17 @@ void Chip8::dispatch()
 void Chip8::update(sf::Time dt)
 {
 	print_func_call(__FUNCTION__);
-	handle_fps(dt);
-	debugtext.setString(std::to_string(handle_fps(dt)));
-
+	//handle_fps(dt);
+	fpstext.setString(std::to_string(handle_fps(dt)));
+#ifdef DEBUG
+	std::stringstream ss;
+	ss << std::hex << instruction;
+	opcodetext.setString(ss.str());
+	assert(false && "Fuck");
+#else
+	opcodetext.setScale({ 0.75f, 0.75f });
+	opcodetext.setString("Built with debug for this feature.");
+#endif
 	fetch();
 	execute();
 }
@@ -127,8 +171,9 @@ void Chip8::update(sf::Time dt)
 void Chip8::fetch()
 {
 	print_func_call(__FUNCTION__);
-	if (pc == ROM.size())
+	if (pc >= ROM.size())
 		window.close();
+	//printf("[%u/%u]\n", pc, ROM.size());
 	instruction = ROM[pc++];
 	instruction <<= 8;
 	instruction += ROM[pc++];
@@ -142,18 +187,20 @@ void Chip8::execute()
 	{
 		case 0x0000:
 		{
-			//printf("Branch [%.2X]\n", instruction & 0xFF00 >> 16);
+			//printf("Branch [%.2X]\n", instruction & 0xFF00 >> 8);
 			switch (instruction & 0x00FF)
 			{
 				// CLS - 00E0
-			case 0xE0:
+			case 0x00E0:
+				OP("CLS", instruction);
 				for (auto& it : graphics)
 				{
 					it = false;
 				}
 				break;
 				// RET - 00EE
-			case 0xEE:
+			case 0x00EE:
+				OP("RET", instruction);
 				if (stack_pointer == 0)
 				{
 					std::cerr << "[Runtime Error]: Attempting to return from subroutine with empty stack.\n";
@@ -169,51 +216,54 @@ void Chip8::execute()
 			break;
 		case 0x1000:
 		{
+			OP("JP", instruction);
 			pc = (instruction & 0x0FFF);
 			break; 
 		}
 		case 0x2000:
 		{
-			stack[++stack_pointer] = pc;
-			pc = instruction & 0x0FFF;
+			OP("CALL", instruction);
+			stack[stack_pointer++] = pc;
+			pc = (instruction & 0x0FFF);
 			break; 
 		}
 		case 0x3000:
 		{
+			OP("SE", instruction);
 			int8_t byte = instruction & 0x00FF;
 			int8_t x = (instruction >> 8) & 0x000F;
 			if (x == byte)
 				pc += 2;
-			pc += 2;
 			break;
 		}
 		case 0x4000:
 		{
+			OP("SNE", instruction);
 			int8_t byte = instruction & 0x00FF;
 			int8_t x = (instruction >> 8) & 0x000F;
 			if (x != byte)
 				pc += 2;
-			pc += 2;
 			break;
 		}
 		case 0x5000:
 		{
 			if ((instruction & 0x000F) == 0)
 			{
+				OP("SE", instruction);
 				int8_t byte = instruction & 0x00FF;
 				int8_t x = (instruction >> 8) & 0x000F;
 				if (x != byte)
 					pc += 2;
-				pc += 2;
 			}
 			else
 			{
-				printf("Opcode 0x%.4X is not supported!\n", instruction);
+				NoSupp(instruction);
 			}
 			break;
 		}
 		case 0x6000:
 		{
+			OP("LD", instruction);
 			uint8_t x = (instruction & 0x0F00) >> 8;
 			uint8_t byte = (instruction & 0x00FF);
 			registers[x] = byte;
@@ -221,6 +271,7 @@ void Chip8::execute()
 		}
 		case 0x7000:
 		{
+			OP("ADD", instruction);
 			uint8_t x = (instruction & 0x0F00) >> 8;
 			uint8_t byte = (instruction & 0x00FF);
 			registers[x] += byte;
@@ -232,6 +283,7 @@ void Chip8::execute()
 			{
 				case 0x0:
 				{
+					OP("LD", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[x] = registers[y];
@@ -239,6 +291,7 @@ void Chip8::execute()
 				}
 				case 0x1:
 				{
+					OP("OR", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[x] |= registers[y];
@@ -246,6 +299,7 @@ void Chip8::execute()
 				}
 				case 0x2:
 				{
+					OP("AND", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[x] &= registers[y];
@@ -253,6 +307,7 @@ void Chip8::execute()
 				}
 				case 0x3:
 				{
+					OP("XOR", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[x] ^= registers[y];
@@ -260,6 +315,7 @@ void Chip8::execute()
 				}
 				case 0x4:
 				{
+					OP("ADD", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[0xF] = ((registers[x] + registers[y]) > 0xFF);
@@ -268,6 +324,7 @@ void Chip8::execute()
 				}
 				case 0x5:
 				{
+					OP("SUB", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[0xF] = (registers[x] > registers[y]);
@@ -276,6 +333,7 @@ void Chip8::execute()
 				}
 				case 0x6:
 				{
+					OP("SHR", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[0xF] = (registers[x] & 0x1);
@@ -284,6 +342,7 @@ void Chip8::execute()
 				}
 				case 0x7:
 				{
+					OP("SUBN", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[0xF] = (registers[y] > registers[x]);
@@ -292,6 +351,7 @@ void Chip8::execute()
 				}
 				case 0xE:
 				{
+					OP("SHL", instruction);
 					uint8_t x = (instruction & 0x0F00) >> 8;
 					uint8_t y = (instruction & 0x00F0) >> 4;
 					registers[0xF] = (registers[x] & 0x8);
@@ -299,7 +359,7 @@ void Chip8::execute()
 					break;
 				}
 				default:
-					printf("Opcode 0x%.4X is not supported!\n", instruction);
+					NoSupp(instruction);
 					break;
 			}
 			break;
@@ -308,28 +368,31 @@ void Chip8::execute()
 		{
 			if ((instruction & 0x000F) == 0)
 			{
+				OP("SNE", instruction);
 				uint8_t x = (instruction & 0x0F00) >> 8;
 				uint8_t y = (instruction & 0x00F0) >> 4;
 				if (registers[x] != registers[y])
 					pc += 2;
-				pc += 2;
 			}
 			else
-				printf("Opcode 0x%.4X is not supported!\n", instruction);
+				NoSupp(instruction);
 			break;
 		}
 		case 0xA000:
 		{
-			memory_pointer = instruction & 0xFFF;
+			OP("LD", instruction);
+			memory_pointer = instruction & 0x0FFF;
 			break;
 		}
 		case 0xB000:
 		{
+			OP("LD", instruction);
 			pc = registers[0] + (instruction & 0x0FFF);
 			break;
 		}
 		case 0xC000:
 		{
+			OP("RND", instruction);
 			uint8_t x = (instruction & 0x0F00) >> 8;
 			uint8_t byte = (instruction & 0x00FF);
 			registers[x] = (rand() & byte);
@@ -337,40 +400,134 @@ void Chip8::execute()
 		}
 		case 0xD000:
 		{
-			uint8_t x = (instruction & 0x0F00) >> 8;
-			uint8_t y = (instruction & 0x00F0) >> 4;
+			// Thanks: https://github.com/Nakrez/chip8/blob/master/src/chip8.cc
+			OP("DRW", instruction);
+			uint8_t x = registers[(instruction & 0x0F00) >> 8];
+			uint8_t y = registers[(instruction & 0x00F0) >> 4];
 			uint8_t n = (instruction & 0x000F);
 			uint16_t& I = memory_pointer;
+			uint16_t p;
 
-			printf("Draw not implemented\n");
+			for (size_t i = 0; i < n; ++i)
+			{
+				p = memory[I + i];
+				for (size_t j = 0; j < 8; ++j)
+				{
+					if ((p & (0x80 >> j)) != 0)
+					{
+						if (graphics[x + j + ((y + i) * 64)] != 0)
+						{
+							registers[0xF] = 1;
+						}
+						graphics[x + j + ((y + i) * 64)] ^= 1;
+					}
+				}
+			}
 
+			
+			update_draw = true;
 			break;
 		}
 		case 0xE000:
 		{
 			if ((instruction & 0xFF) == 0x9E)
 			{
+				OP("SKP", instruction);
 				uint8_t x = (instruction & 0x0F00) >> 8;
+				if (sf::Keyboard::isKeyPressed(chiptosfml(registers[x])))
+					pc += 2;
 			}
 			else if ((instruction & 0xFF) == 0xA1)
 			{
-
+				OP("SKNP", instruction);
+				uint8_t x = (instruction & 0x0F00) >> 8;
+				if (!sf::Keyboard::isKeyPressed(chiptosfml(registers[x])))
+					pc += 2;
 			}
 			else
-				printf("Opcode 0x%.4X is not supported!\n", instruction);
+				NoSupp(instruction);
+			break;
+		}
+		case 0xF000:
+		{
+			switch (instruction & 0x00FF)
+			{
+				case 0x0007:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x000A:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x0015:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x0018:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x001E:
+				{
+					OP("ADD", instruction);
+					break;
+				}
+				case 0x0029:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x0033:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x0055:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				case 0x0065:
+				{
+					OP("LD", instruction);
+					break;
+				}
+				default:
+					NoSupp(instruction);
+					break;
+			}
 			break;
 		}
 		default:
-			printf("\tIgnoring instruction 0x%.4X - Not implemented.\n", instruction);
+			NoSupp(instruction);
 			break;
 	}
 }
 
 void Chip8::render()
 {
+
 	print_func_call(__FUNCTION__);
 	window.clear();
-	window.draw(debugtext);
+	/*if (update_draw)
+	{
+		for (size_t i = 0; i < 32; i++)
+		{
+			for (size_t j = 0; j < 64; j++)
+			{
+				if (graphics[i * j])
+					;
+			}
+		}
+		update_draw = false;
+	}*/
+	window.draw(fpstext);
+	window.draw(opcodetext);
 	window.display();
 }
 
@@ -382,7 +539,7 @@ long handle_fps(sf::Time dt)
 	duration += dt;
 	if (duration >= sf::seconds(1))
 	{
-		std::cout << "FPS: " << fps << "\n";
+		//std::cout << "FPS: " << fps << "\n";
 		ret = fps;
 		fps = 0;
 		duration = sf::seconds(0);
