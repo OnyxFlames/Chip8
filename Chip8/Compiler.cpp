@@ -2,8 +2,12 @@
 
 #include <fstream>
 #include <iostream>
-
+#include <sstream>
+#include <iomanip>
 #include "Utils.hpp"
+
+uint8_t decode_register(uint8_t r);
+
 
 void Compiler::write(std::vector<int> _data)
 {
@@ -31,7 +35,7 @@ void Compiler::lex()
 		std::exit(1);
 	}
 	std::string buffer;
-	while (std::cin >> buffer)
+	while (input >> buffer)
 	{
 		tokens.push_back(buffer);
 	}
@@ -84,22 +88,63 @@ void Compiler::compile()
 					{ (val & 0xFF00) >> 8, val & 0x00FF }
 				);
 			}
+			else
+			{
+				std::cerr << "CALL opcode does not support operands other than a hexidecimal number in the implementation.\n";
+				return;
+			}
 		}
 		else if (s == "SE")
 		{
-			std::string s1 = tokens[++i].substr(s1.find(','));
+			std::string s1 = tokens[++i].find(',') != std::string::npos 
+				? tokens[i].substr(0, tokens[i].find(',')) 
+				: tokens[i];
 			std::string s2 = tokens[++i];
 
 			if (is_register_read(s1) && is_byte(s2))
 			{
+				uint8_t r = decode_register(s1[1]);
 
+				uint8_t b1 = 0x30 + (r & 0x0F);
+				uint8_t b2 = std::stoi(s2.substr(2), nullptr, 16) & 0x000F;
+				std::cout << std::hex << (short)b1 << (short)b2 << "\n";
+				write
+				(
+					{ b1, b2 }
+				);
 			}
-
+			else if (is_register_read(s1) && is_register_read(s1))
+			{
+				uint8_t b1 = 0x50 + (decode_register(s1[1]) & 0x0F);
+				uint8_t b2 = (decode_register(s2[1]) << 4) + 0x00;
+				std::cout << std::hex << (short)b1 << (short)b2 << "\n";
+				write
+				(
+					{ b1, b2 }
+				);
+			}
+			else
+			{
+				printf("Invalid SE opcode format.\n");
+				return;
+			}
 		}
-
+	}
+	std::cout << "Binary dump: \n";
+	for (size_t i = 0; i < data.size(); i+=2)
+	{
+		std::cout << std::hex << ((short)data[i] & 0x00FF) << ((short)data[i + 1] & 0x00FF) << "\n";
 	}
 }
 
 void Compiler::emit()
 {
+}
+
+uint8_t decode_register(uint8_t r)
+{
+	r = r - '0';
+	if (r >= 16)
+		r -= 7;
+	return r;
 }

@@ -32,7 +32,8 @@ void ArgumentHandler::eval()
 		}
 		else if (fs::exists(c))
 		{
-			_flags.execute = true;
+			if (!_flags.compile)
+				_flags.execute = true;
 			_flags.file_list.push_back(c);
 		}
 	}

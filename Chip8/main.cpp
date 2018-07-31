@@ -18,7 +18,10 @@ int main(int argc, char* argv[])
 	std::unique_ptr<Chip8> chip;// ("Chip8 Emulator (Alpha)", 64, 32);
 	if (fs.compile)
 	{
+		
 		Compiler c(fs);
+		c.lex();
+		c.compile();
 	}
 	else if (fs.execute)
 	{

@@ -15,9 +15,10 @@
 #include <string>
 #include "Opcodes.hpp"
 
+
 #ifdef DEBUG
 #define print_func_call(x) //printf("Function %s\n", x)
-#define OP(opstr, addr) printf("[%s]\t%.4X\n", opstr, addr);
+#define OP(opstr, addr) printf("%s\t0x%.4X\n", opstr, addr);
 #define NoSupp(x) //printf("Opcode 0x%.4X is not supported!\n", x);
 #else
 #define print_func_call(x)
@@ -49,8 +50,11 @@ private:
 		debugfont.loadFromFile("../resources/fonts/consola.ttf");
 		fpstext.setFont(debugfont);
 		fpstext.setString("");
-		opcodetext = fpstext;
-		opcodetext.setPosition(window.getSize().x - opcodetext.getGlobalBounds().width * 2, 0);
+		fpstext.setPosition(5.f, 5.f);
+		//opcodetext = fpstext;
+		opcodetext.setFont(debugfont);
+		opcodetext.setString("");
+		opcodetext.setPosition(window.getSize().x - opcodetext.getGlobalBounds().width, 0);
 		srand((unsigned)time(0));
 	}
 	bool update_draw = true;

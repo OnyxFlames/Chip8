@@ -156,13 +156,17 @@ void Chip8::update(sf::Time dt)
 	//handle_fps(dt);
 	fpstext.setString(std::to_string(handle_fps(dt)));
 #ifdef DEBUG
+	// Doesn't work.
+	/*static size_t list_count = 0;
 	std::stringstream ss;
-	ss << std::hex << instruction;
-	opcodetext.setString(ss.str());
-	assert(false && "Fuck");
-#else
-	opcodetext.setScale({ 0.75f, 0.75f });
-	opcodetext.setString("Built with debug for this feature.");
+	if (list_count++ > 15)
+	{
+		ss << std::hex << instruction << "\n";
+		list_count = 0;
+		opcodetext.setString(ss.str());
+	}
+	else
+		opcodetext.setString(ss.str());*/
 #endif
 	fetch();
 	execute();
@@ -173,7 +177,6 @@ void Chip8::fetch()
 	print_func_call(__FUNCTION__);
 	if (pc >= ROM.size())
 		window.close();
-	//printf("[%u/%u]\n", pc, ROM.size());
 	instruction = ROM[pc++];
 	instruction <<= 8;
 	instruction += ROM[pc++];
@@ -182,7 +185,6 @@ void Chip8::fetch()
 void Chip8::execute()
 {
 	print_func_call(__FUNCTION__);
-	//printf("Instruction: %.4X [Sig: %.4X] \n", instruction, (instruction & 0xF000));
 	switch (instruction & 0xF000)
 	{
 		case 0x0000:
@@ -201,6 +203,7 @@ void Chip8::execute()
 				// RET - 00EE
 			case 0x00EE:
 				OP("RET", instruction);
+#ifdef DEBUG
 				if (stack_pointer == 0)
 				{
 					std::cerr << "[Runtime Error]: Attempting to return from subroutine with empty stack.\n";
@@ -210,6 +213,9 @@ void Chip8::execute()
 				{
 					pc = stack[stack_pointer--];
 				}
+#else
+				pc = stack[stack_pointer--];
+#endif
 					break;
 			}
 		}
@@ -224,6 +230,14 @@ void Chip8::execute()
 		{
 			OP("CALL", instruction);
 			stack[stack_pointer++] = pc;
+#ifdef DEBUG
+			if ((size_t)(instruction & 0x0FFF) > ROM.size())
+			{
+				std::cerr << "[Runtime Error]: Calling subroutine at invalid address 0x0" << std::hex << std::uppercase << (instruction & 0x0FFF)
+					<< "\n(Offset: " << std::dec << (unsigned short)(instruction & 0x0FFF) - ROM.size() << ")\n";
+				std::exit(1);
+			}
+#endif
 			pc = (instruction & 0x0FFF);
 			break; 
 		}
