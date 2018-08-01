@@ -46,6 +46,7 @@ void Compiler::compile()
 {
 	// Give us some speed with compiling files that end up 3x larger than the binary(a rough estimate)
 	data.reserve(tokens.size() % 3);
+	std::cout << std::hex << std::setw(5) << std::setfill('0');
 	for (size_t i = 0; i < tokens.size(); i++)
 	{
 		std::string s = tokens[i];
@@ -105,9 +106,9 @@ void Compiler::compile()
 			{
 				uint8_t r = decode_register(s1[1]);
 
-				uint8_t b1 = 0x30 + (r & 0x0F);
-				uint8_t b2 = std::stoi(s2.substr(2), nullptr, 16) & 0x000F;
-				std::cout << std::hex << (short)b1 << (short)b2 << "\n";
+				uint8_t b1 = 0x30 + (r & 0x0F) ;
+				uint8_t b2 = (std::stoi(s2.substr(2), nullptr, 16));
+				std::cout << "SE Vx, 0xXX: " << std::hex << std::setw(2) << std::setfill('0') << (short)b1 << (short)b2 << "\n";
 				write
 				(
 					{ b1, b2 }
@@ -115,9 +116,10 @@ void Compiler::compile()
 			}
 			else if (is_register_read(s1) && is_register_read(s1))
 			{
+				//TODO: Fix
 				uint8_t b1 = 0x50 + (decode_register(s1[1]) & 0x0F);
-				uint8_t b2 = (decode_register(s2[1]) << 4) + 0x00;
-				std::cout << std::hex << (short)b1 << (short)b2 << "\n";
+				uint8_t b2 = (decode_register(s2[1]) << 4);
+				std::cout << "SE Vx, Vx: " << std::hex << std::setw(2) << std::setfill('0') << ((short)b1) << (short)b2 << "\n";
 				write
 				(
 					{ b1, b2 }
@@ -130,6 +132,7 @@ void Compiler::compile()
 			}
 		}
 	}
+	return /* exit early*/;
 	std::cout << "Binary dump: \n";
 	for (size_t i = 0; i < data.size(); i+=2)
 	{
@@ -143,8 +146,6 @@ void Compiler::emit()
 
 uint8_t decode_register(uint8_t r)
 {
-	r = r - '0';
-	if (r >= 16)
-		r -= 7;
-	return r;
+	std::string buff{ (char)r, '\0' };
+	return std::stoi(buff, nullptr, 16) & 0x000F;
 }
